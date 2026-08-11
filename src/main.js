@@ -7,7 +7,8 @@ import { rectsOverlap } from "./util/collision.js";
 import { getHighScore, setHighScoreIfBetter, addLeaderboardEntry, getLeaderboard } from "./util/storage.js";
 import { Player } from "./entities/Player.js";
 import { World } from "./world/World.js";
-import { unlockAudio, playMeow } from "./audio/sound.js";
+import { unlockAudio, playMeow, playGameOver } from "./audio/sound.js";
+import { startMusic } from "./audio/music.js";
 
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
@@ -116,6 +117,7 @@ function confirmUsername(e) {
 
 function beginPlaying() {
   unlockAudio();
+  startMusic();
   resetGame();
   state = "playing";
   startScreen.classList.add("hidden");
@@ -165,6 +167,7 @@ function closeScoreboard() {
 function gameOver() {
   state = "gameover";
   player.died();
+  playGameOver();
   const isNewBest = setHighScoreIfBetter(score);
   addLeaderboardEntry(currentUsername, score);
   finalScoreEl.textContent = String(score);

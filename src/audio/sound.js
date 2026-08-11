@@ -1,21 +1,6 @@
-let audioCtx = null;
+import { getCtx } from "./context.js";
 
-function getCtx() {
-  if (!audioCtx) {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new Ctx();
-  }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
-  return audioCtx;
-}
-
-// Must be called from inside a user gesture (e.g. the start button click)
-// so the browser doesn't block audio playback.
-export function unlockAudio() {
-  getCtx();
-}
+export { unlockAudio } from "./context.js";
 
 // A short, square-wave "mrreow" chirp - plays whenever the difficulty
 // steps up a tier, as an 8-bit-style warning cue.
@@ -39,4 +24,34 @@ export function playMeow() {
 
   osc.start(now);
   osc.stop(now + 0.3);
+}
+
+// Classic descending "sad trombone" - two whomp notes, each with its own
+// pitch-down slide, for the moment the cat gets bumped over.
+export function playGameOver() {
+  const ctx = getCtx();
+  const now = ctx.currentTime;
+
+  const notes = [
+    { start: now, freq: 220 },
+    { start: now + 0.32, freq: 185 },
+  ];
+
+  for (const { start, freq } of notes) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.frequency.setValueAtTime(freq, start);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.62, start + 0.4);
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.14, start + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.42);
+
+    osc.start(start);
+    osc.stop(start + 0.44);
+  }
 }
