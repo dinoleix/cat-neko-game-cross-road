@@ -22,10 +22,30 @@ export function setHighScoreIfBetter(score) {
   return false;
 }
 
+// One row per player (case-insensitive), keeping their best score. Applied
+// on every read so any duplicate rows saved before this rule existed also
+// get cleaned up, not just new ones going forward.
+function dedupeByName(list) {
+  const byName = new Map();
+  for (const entry of list) {
+    const key = entry.name.toLowerCase();
+    const existing = byName.get(key);
+    if (!existing || entry.score > existing.score) {
+      byName.set(key, entry);
+    }
+  }
+  return Array.from(byName.values()).sort((a, b) => b.score - a.score);
+}
+
 export function getLeaderboard() {
   try {
     const raw = localStorage.getItem(LEADERBOARD_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const list = raw ? JSON.parse(raw) : [];
+    const deduped = dedupeByName(list);
+    if (deduped.length !== list.length) {
+      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(deduped));
+    }
+    return deduped;
   } catch {
     return [];
   }
@@ -34,20 +54,10 @@ export function getLeaderboard() {
 export function addLeaderboardEntry(name, score) {
   try {
     const list = getLeaderboard();
-    // one row per player: keep their best score instead of a row per run
-    const existing = list.find((e) => e.name.toLowerCase() === name.toLowerCase());
-    if (existing) {
-      if (score > existing.score) {
-        existing.score = score;
-        existing.name = name;
-      }
-    } else {
-      list.push({ name, score });
-    }
-    list.sort((a, b) => b.score - a.score);
-    const trimmed = list.slice(0, LEADERBOARD_MAX);
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(trimmed));
-    return trimmed;
+    list.push({ name, score });
+    const deduped = dedupeByName(list).slice(0, LEADERBOARD_MAX);
+    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(deduped));
+    return deduped;
   } catch {
     return [];
   }
