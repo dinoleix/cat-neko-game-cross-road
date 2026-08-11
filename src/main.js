@@ -9,6 +9,7 @@ import { Player } from "./entities/Player.js";
 import { World } from "./world/World.js";
 import { unlockAudio, playMeow, playGameOver } from "./audio/sound.js";
 import { startMusic } from "./audio/music.js";
+import { shareScore } from "./share/share.js";
 
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
@@ -36,6 +37,8 @@ const scoreboardBackButton = document.getElementById("scoreboard-back");
 const scoreboardCloseButton = document.getElementById("scoreboard-close");
 const startScoreboardButton = document.getElementById("start-scoreboard-button");
 const gameoverScoreboardButton = document.getElementById("gameover-scoreboard-button");
+const scoreboardShareButton = document.getElementById("scoreboard-share-button");
+const scoreboardShareStatus = document.getElementById("scoreboard-share-status");
 
 const LOWER_OFFSET = 4;
 const CAMERA_EASE = 8;
@@ -162,6 +165,23 @@ function closeScoreboard() {
   state = scoreboardReturnScreen === gameoverScreen ? "gameover" : "start";
   scoreboardScreen.classList.add("hidden");
   scoreboardReturnScreen.classList.remove("hidden");
+}
+
+async function handleShareClick() {
+  scoreboardShareButton.disabled = true;
+  scoreboardShareStatus.classList.add("hidden");
+  try {
+    const result = await shareScore(getHighScore(), currentUsername);
+    if (result.method === "download+clipboard" || result.method === "download") {
+      scoreboardShareStatus.textContent =
+        result.method === "download+clipboard"
+          ? "Score card saved and caption copied - post it to your Instagram!"
+          : "Score card saved - post it to your Instagram!";
+      scoreboardShareStatus.classList.remove("hidden");
+    }
+  } finally {
+    scoreboardShareButton.disabled = false;
+  }
 }
 
 function gameOver() {
@@ -343,6 +363,7 @@ async function init() {
   gameoverScoreboardButton.addEventListener("click", () => openScoreboard(gameoverScreen));
   scoreboardBackButton.addEventListener("click", closeScoreboard);
   scoreboardCloseButton.addEventListener("click", closeScoreboard);
+  scoreboardShareButton.addEventListener("click", handleShareClick);
 
   await preloadImages();
 

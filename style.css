@@ -348,6 +348,17 @@ html, body {
   font-weight: 700;
 }
 
+.scoreboard-share-btn {
+  margin-top: 4px;
+}
+
+.scoreboard-share-status {
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  color: #9db07c;
+}
+
 .scoreboard-actions {
   display: flex;
   gap: 8px;
