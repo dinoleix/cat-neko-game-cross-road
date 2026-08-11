@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <title>Green Neko</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="ticket">
+        <img class="ticket-bg" src="assets/sprites/points_ticket_blank.png" alt="" />
+        <span id="score" class="ticket-score">000000</span>
+      </div>
+    </div>
+
+    <div id="start-screen" class="screen">
+      <div class="title-wrap">
+        <img class="title-bg" src="assets/sprites/title_art.png" alt="Green Neko" />
+        <button id="start-button" class="start-hit" aria-label="Tap to start"></button>
+      </div>
+      <div class="title-footer">
+        <p class="hint">Arrow keys / WASD to hop &middot; Swipe or D-pad on mobile</p>
+        <p class="best">Best: <span id="start-best">0</span></p>
+        <button type="button" id="start-scoreboard-button" class="scoreboard-link">View Scoreboard</button>
+      </div>
+    </div>
+
+    <div id="username-screen" class="screen hidden">
+      <div class="username-panel">
+        <div class="username-panel-head">
+          <h2>Enter Username</h2>
+        </div>
+        <hr class="username-divider" />
+        <p class="username-hint">Enter your name to appear<br />on the leaderboard!</p>
+        <form id="username-form" autocomplete="off">
+          <input
+            id="username-input"
+            class="username-input"
+            type="text"
+            maxlength="14"
+            placeholder="Your name"
+            autocomplete="off"
+          />
+          <button type="submit" id="username-confirm" class="username-btn confirm">Confirm</button>
+          <button type="button" id="username-back" class="username-btn back">&larr; Back</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="gameover-screen" class="screen hidden">
+      <img class="art art-gameover" src="assets/sprites/gameover_art.png" alt="Game Over" />
+      <p class="score-line">Score: <span id="final-score">0</span></p>
+      <p class="best">Best: <span id="final-best">0</span></p>
+      <p id="new-best" class="new-best hidden">New Best!</p>
+      <button id="restart-button">Tap to Restart</button>
+      <button type="button" id="gameover-scoreboard-button" class="scoreboard-link">View Scoreboard</button>
+    </div>
+
+    <div id="scoreboard-screen" class="screen hidden">
+      <div class="scoreboard-panel">
+        <div class="scoreboard-head">
+          <p class="scoreboard-brand">Green Neko</p>
+          <h2>Scoreboard</h2>
+        </div>
+        <hr class="username-divider" />
+        <div class="scoreboard-table">
+          <div class="scoreboard-row scoreboard-header-row">
+            <span class="col-rank">Rank</span>
+            <span class="col-player">Player</span>
+            <span class="col-score">Score</span>
+          </div>
+          <div id="scoreboard-rows"></div>
+        </div>
+        <div class="scoreboard-actions">
+          <button type="button" id="scoreboard-back" class="username-btn back scoreboard-icon-btn" aria-label="Back">&larr;</button>
+          <button type="button" id="scoreboard-close" class="username-btn back">&times; Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dpad" class="hidden">
+      <button id="dpad-up" class="dpad-btn dpad-up" aria-label="up">&#9650;</button>
+      <button id="dpad-left" class="dpad-btn dpad-left" aria-label="left">&#9664;</button>
+      <button id="dpad-right" class="dpad-btn dpad-right" aria-label="right">&#9654;</button>
+      <button id="dpad-down" class="dpad-btn dpad-down" aria-label="down">&#9660;</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

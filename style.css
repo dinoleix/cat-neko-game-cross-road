@@ -1,0 +1,437 @@
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #1c2415;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #f0e4c8;
+}
+
+#game-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  user-select: none;
+}
+
+#game-canvas {
+  background: #e7d6ae;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  touch-action: none;
+}
+
+#hud {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ticket {
+  position: relative;
+  width: clamp(170px, 46vw, 240px);
+}
+
+.ticket-bg {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.35));
+}
+
+.ticket-score {
+  position: absolute;
+  left: 36%;
+  top: 60.3%;
+  width: 42%;
+  transform: translateY(-50%);
+  text-align: center;
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  font-size: clamp(14px, 4.4vw, 21px);
+  letter-spacing: 1px;
+  color: #f0e4c8;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  background: #efe2c4;
+  padding: 20px 24px;
+  overflow: hidden;
+}
+
+#start-screen {
+  padding: 12px 0;
+  gap: 10px;
+}
+
+/* Width/height are computed and applied by resizeTitleWrap() in main.js -
+   CSS alone can't reliably contain-fit this while reserving room for
+   .title-footer below it across arbitrary window shapes. This is just a
+   sane pre-JS fallback so there's no flash of an unsized box. The button
+   inside is positioned as a percentage, so it always lands on "PRESS
+   START" in the artwork no matter what size this ends up being. */
+.title-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  aspect-ratio: 1179 / 1572;
+}
+
+.title-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.start-hit {
+  position: absolute;
+  left: 23%;
+  top: 60%;
+  width: 54%;
+  height: 9%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: none;
+}
+
+.start-hit:active {
+  transform: scale(0.96);
+}
+
+.title-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.title-footer p {
+  margin: 0;
+}
+
+.art {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  object-fit: contain;
+}
+
+.art-gameover {
+  max-height: 46vh;
+  animation: gameover-wobble 1.2s steps(1) infinite;
+}
+
+@keyframes gameover-wobble {
+  0%   { transform: translate(0, 0); }
+  12%  { transform: translate(-3px, 1px); }
+  25%  { transform: translate(0, -3px); }
+  37%  { transform: translate(3px, 1px); }
+  50%  { transform: translate(0, 0); }
+  62%  { transform: translate(-3px, -1px); }
+  75%  { transform: translate(0, 2px); }
+  87%  { transform: translate(3px, -1px); }
+  100% { transform: translate(0, 0); }
+}
+
+#username-screen {
+  background-image: url("assets/sprites/title_art.png");
+  background-size: cover;
+  background-position: center top;
+  padding: 20px;
+}
+
+.username-panel {
+  position: relative;
+  width: min(92%, 380px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #182010;
+  border: 3px solid #4a6030;
+  border-radius: 14px;
+  padding: 22px 20px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(24, 32, 16, 0.4);
+}
+
+.username-panel-head h2 {
+  margin: 0;
+  font-size: 21px;
+  letter-spacing: 1px;
+  color: #f0e4c8;
+  text-transform: uppercase;
+}
+
+.username-divider {
+  width: 100%;
+  border: none;
+  border-top: 2px dashed #4a6030;
+  margin: 0;
+}
+
+.username-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #9db07c;
+}
+
+#username-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.username-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 2px solid #4a6030;
+  background: #0f150a;
+  color: #f0e4c8;
+  font-size: 16px;
+  font-family: inherit;
+  outline: none;
+  text-align: center;
+}
+
+.username-input::placeholder {
+  color: #56663e;
+}
+
+.username-input:focus {
+  border-color: #7ba050;
+}
+
+.username-btn {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.username-btn.back {
+  margin-top: 0;
+  background: transparent;
+  color: #9db07c;
+  border: 2px solid #4a6030;
+  box-shadow: none;
+}
+
+.scoreboard-link {
+  margin-top: 6px;
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: #4a6030;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#scoreboard-screen {
+  background-image: url("assets/sprites/title_art.png");
+  background-size: cover;
+  background-position: center top;
+  padding: 20px;
+}
+
+.scoreboard-panel {
+  position: relative;
+  width: min(94%, 420px);
+  max-height: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #182010;
+  border: 3px solid #4a6030;
+  border-radius: 14px;
+  padding: 20px 18px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(24, 32, 16, 0.4);
+  overflow: hidden;
+}
+
+.scoreboard-head {
+  text-align: center;
+}
+
+.scoreboard-brand {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #9db07c;
+}
+
+.scoreboard-head h2 {
+  margin: 2px 0 0;
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: #f0e4c8;
+  text-transform: uppercase;
+}
+
+.scoreboard-table {
+  overflow-y: auto;
+  border: 2px solid #33421f;
+  border-radius: 10px;
+}
+
+.scoreboard-row {
+  display: grid;
+  grid-template-columns: 0.8fr 2fr 1fr;
+  gap: 6px;
+  padding: 9px 12px;
+  border-bottom: 1px solid #2a3418;
+  align-items: center;
+}
+
+.scoreboard-row:last-child {
+  border-bottom: none;
+}
+
+.scoreboard-header-row {
+  background: #1f2914;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #9db07c;
+  font-weight: 700;
+}
+
+.scoreboard-row .col-rank {
+  color: #d8c98a;
+  font-weight: 700;
+}
+
+.scoreboard-row .col-player {
+  color: #f0e4c8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scoreboard-row .col-score {
+  color: #f0e4c8;
+  text-align: right;
+  font-weight: 700;
+}
+
+.scoreboard-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scoreboard-actions .username-btn {
+  margin-top: 0;
+}
+
+.scoreboard-icon-btn {
+  width: auto;
+  flex: 0 0 auto;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.screen .hint {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #4a5a2e;
+  opacity: 0.8;
+}
+
+.screen .best,
+.score-line {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #3d4a24;
+}
+
+.new-best {
+  margin: 2px 0 0;
+  color: #b8860b;
+  font-weight: 700;
+}
+
+.screen button:not(.start-hit):not(.back):not(.scoreboard-link) {
+  margin-top: 14px;
+  padding: 12px 28px;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-radius: 999px;
+  background: #4a6030;
+  color: #f0e4c8;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25);
+}
+
+.screen button:not(.start-hit):active {
+  transform: scale(0.96);
+}
+
+.hidden {
+  display: none !important;
+}
+
+#dpad {
+  position: absolute;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: 20px;
+  width: 140px;
+  height: 140px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.dpad-btn {
+  border: none;
+  border-radius: 10px;
+  background: rgba(240, 228, 200, 0.22);
+  color: #f0e4c8;
+  font-size: 18px;
+  touch-action: none;
+}
+
+.dpad-btn:active {
+  background: rgba(240, 228, 200, 0.4);
+}
+
+.dpad-up { grid-column: 2; grid-row: 1; }
+.dpad-left { grid-column: 1; grid-row: 2; }
+.dpad-right { grid-column: 3; grid-row: 2; }
+.dpad-down { grid-column: 2; grid-row: 3; }
