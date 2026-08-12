@@ -5,6 +5,12 @@ import { randInt, randFloat, chance } from "../util/rng.js";
 const START_SAFE_ROWS = 5;
 const DIFFICULTY_ROW_SPAN = 140;
 
+// Fraction of full difficulty per speed-up level - also drives the meow
+// level-up cue in main.js, so the chime and the speed jump land together.
+export const DIFFICULTY_TIER_STEP = 0.15;
+const TIER_ROW_SPAN = DIFFICULTY_ROW_SPAN * DIFFICULTY_TIER_STEP;
+const SPEED_PER_TIER = 0.35;
+
 export class World {
   constructor() {
     this.rows = new Map();
@@ -28,10 +34,18 @@ export class World {
     return Math.min(1, Math.max(0, (rowIndex - START_SAFE_ROWS) / DIFFICULTY_ROW_SPAN));
   }
 
+  // Unlike difficultyAt (which plateaus so lane density/openness stay fair
+  // forever), the tier keeps climbing the deeper the run goes - that's what
+  // makes obstacle speed keep ramping "level after level" with no ceiling.
+  tierAt(rowIndex) {
+    return Math.max(0, Math.floor((rowIndex - START_SAFE_ROWS) / TIER_ROW_SPAN));
+  }
+
   generateRow(index) {
     if (this.rows.has(index)) return this.rows.get(index);
 
     const diff = this.difficultyAt(index);
+    const tier = this.tierAt(index);
     const hazardChance = 0.5 + diff * 0.35; // ramps 0.5 -> 0.85
 
     let type = "safe";
@@ -49,9 +63,15 @@ export class World {
       this.hazardStreak += 1;
       const isCart = chance(0.05 + diff * 0.25);
       const dir = chance(0.5) ? 1 : -1;
-      const speed = (isCart ? 1.15 : 0.75) + diff * 2.1 + randFloat(-0.1, 0.1);
-      const gap = Math.max(1.9, (isCart ? 3.8 : 3.1) - diff * 1.1);
+      const speed = (isCart ? 1.15 : 0.75) + tier * SPEED_PER_TIER + randFloat(-0.1, 0.1);
       const widthCols = isCart ? 1.5 : 1;
+      // Open space between obstacles (gap - widthCols) shrinks with difficulty
+      // but never below OPEN_MIN, so there's always a real window to slip
+      // through - difficulty ramps via speed/frequency instead of choking
+      // the gap down to an unfair sliver.
+      const openMax = isCart ? 1.9 : 2.4;
+      const openMin = isCart ? 1.3 : 1.3;
+      const gap = widthCols + (openMax - diff * (openMax - openMin));
       const variant = randInt(0, 2);
 
       const count = Math.ceil((COLS + 4) / gap) + 1;
@@ -74,7 +94,7 @@ export class World {
       }
     } else {
       this.hazardStreak = 0;
-      this.nextForceSafeAt = randInt(1 + Math.round(diff), 2 + Math.round(diff * 3));
+      this.nextForceSafeAt = randInt(1 + Math.round(diff), 2 + Math.round(diff * 2));
     }
 
     this.rows.set(index, row);

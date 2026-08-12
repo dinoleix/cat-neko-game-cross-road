@@ -42,7 +42,6 @@ const scoreboardShareStatus = document.getElementById("scoreboard-share-status")
 
 const LOWER_OFFSET = 4;
 const CAMERA_EASE = 8;
-const DIFFICULTY_TIER_STEP = 0.15; // fraction of full difficulty per meow cue
 const SCOREBOARD_ROWS = 10;
 
 let state = "start"; // 'start' | 'username' | 'playing' | 'gameover' | 'scoreboard'
@@ -280,7 +279,7 @@ function update(dt) {
   score = maxRowReached;
   scoreEl.textContent = formatScore(score);
 
-  const tier = Math.floor(world.difficultyAt(maxRowReached) / DIFFICULTY_TIER_STEP);
+  const tier = world.tierAt(maxRowReached);
   if (tier > difficultyTier) {
     difficultyTier = tier;
     playMeow();
