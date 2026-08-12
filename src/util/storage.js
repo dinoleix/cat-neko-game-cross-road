@@ -1,5 +1,20 @@
+import { db } from "../firebase/config.js";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  query,
+  orderBy,
+  limit,
+} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
 const KEY = "neko-hopper-highscore";
-const LEADERBOARD_KEY = "green-neko-leaderboard";
+// Scoped to this game specifically - "games-dd1a8" is a shared Firebase
+// project with other apps' data already in it, so a generic "leaderboard"
+// name risks colliding with something else writing there.
+const LEADERBOARD_COLLECTION = "green_neko_leaderboard";
 const LEADERBOARD_MAX = 50;
 
 export function getHighScore() {
@@ -22,43 +37,32 @@ export function setHighScoreIfBetter(score) {
   return false;
 }
 
-// One row per player (case-insensitive), keeping their best score. Applied
-// on every read so any duplicate rows saved before this rule existed also
-// get cleaned up, not just new ones going forward.
-function dedupeByName(list) {
-  const byName = new Map();
-  for (const entry of list) {
-    const key = entry.name.toLowerCase();
-    const existing = byName.get(key);
-    if (!existing || entry.score > existing.score) {
-      byName.set(key, entry);
-    }
-  }
-  return Array.from(byName.values()).sort((a, b) => b.score - a.score);
+// One row per player (case-insensitive) is enforced by using the lowercased
+// name as the Firestore document ID, rather than de-duping a list client
+// side - two devices submitting the same name can't both create a row.
+function docIdForName(name) {
+  return (name || "").trim().toLowerCase().slice(0, 100) || "player";
 }
 
-export function getLeaderboard() {
+export async function getLeaderboard() {
   try {
-    const raw = localStorage.getItem(LEADERBOARD_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    const deduped = dedupeByName(list);
-    if (deduped.length !== list.length) {
-      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(deduped));
-    }
-    return deduped;
+    const q = query(collection(db, LEADERBOARD_COLLECTION), orderBy("score", "desc"), limit(LEADERBOARD_MAX));
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => ({ name: d.data().name, score: d.data().score }));
   } catch {
     return [];
   }
 }
 
-export function addLeaderboardEntry(name, score) {
+export async function addLeaderboardEntry(name, score) {
   try {
-    const list = getLeaderboard();
-    list.push({ name, score });
-    const deduped = dedupeByName(list).slice(0, LEADERBOARD_MAX);
-    localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(deduped));
-    return deduped;
+    const ref = doc(db, LEADERBOARD_COLLECTION, docIdForName(name));
+    const existing = await getDoc(ref);
+    if (!existing.exists() || score > existing.data().score) {
+      await setDoc(ref, { name: (name || "Player").trim().slice(0, 40) || "Player", score, updatedAt: Date.now() });
+    }
   } catch {
-    return [];
+    // offline / blocked - the local high score above still saved
   }
+  return getLeaderboard();
 }

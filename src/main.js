@@ -130,8 +130,13 @@ function beginPlaying() {
   dpad.classList.remove("hidden");
 }
 
-function renderScoreboard() {
-  const entries = getLeaderboard();
+// Leaderboard now lives in Firestore, so this is a network round trip - draw
+// a loading placeholder immediately, then fill in real rows once it resolves.
+// scoreboardRenderToken guards against an older fetch (e.g. from a screen the
+// player already backed out of) clobbering a newer one that lands after it.
+let scoreboardRenderToken = 0;
+
+function renderScoreboardRows(entries) {
   scoreboardRowsEl.innerHTML = "";
   for (let i = 0; i < SCOREBOARD_ROWS; i++) {
     const entry = entries[i];
@@ -144,6 +149,14 @@ function renderScoreboard() {
     `;
     scoreboardRowsEl.appendChild(row);
   }
+}
+
+async function renderScoreboard() {
+  const token = ++scoreboardRenderToken;
+  renderScoreboardRows([]);
+  const entries = await getLeaderboard();
+  if (token !== scoreboardRenderToken) return;
+  renderScoreboardRows(entries);
 }
 
 function escapeHtml(str) {
