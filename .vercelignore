@@ -1,0 +1,7 @@
+# This is a static site with no build step, so anything left here is served
+# verbatim at a public URL. .env.local holds a VERCEL_OIDC_TOKEN, which would
+# otherwise be fetchable at /.env.local.
+.env*
+.git
+.DS_Store
+**/.DS_Store
