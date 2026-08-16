@@ -12,9 +12,8 @@ service cloud.firestore {
     // Scoped to green_neko_leaderboard specifically and does not declare
     // any rule for other collections in this shared Firebase project -
     // this file is not the source of truth for anything outside that path.
-    match /green_neko_leaderboard/{entryId} {
-      allow read: if true;
-      allow create, update: if request.resource.data.keys().hasOnly(['name', 'score', 'updatedAt'])
+    function isValidScoreEntry() {
+      return request.resource.data.keys().hasOnly(['name', 'score', 'updatedAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 40
@@ -22,6 +21,21 @@ service cloud.firestore {
         && request.resource.data.score >= 0
         && request.resource.data.score <= 1000000
         && request.resource.data.updatedAt is number;
+    }
+
+    match /green_neko_leaderboard/{entryId} {
+      allow read: if true;
+      allow create, update: if isValidScoreEntry();
+      allow delete: if false;
+    }
+
+    // Per-week boards: green_neko_weeks/{2026-W33}/scores/{player}. Same trust
+    // model and same shape as the all-time board above - the week key is only
+    // a bucket, it is not a permission boundary, so an old week is as writable
+    // as the current one.
+    match /green_neko_weeks/{weekKey}/scores/{entryId} {
+      allow read: if true;
+      allow create, update: if isValidScoreEntry();
       allow delete: if false;
     }
   }

@@ -26,28 +26,69 @@
         <p class="hint">Arrow keys / WASD to hop &middot; Swipe or D-pad on mobile</p>
         <p class="best">Best: <span id="start-best">0</span></p>
         <button type="button" id="start-scoreboard-button" class="scoreboard-link">View Scoreboard</button>
+        <button type="button" id="start-terms-button" class="scoreboard-link">Terms &amp; Conditions</button>
+      </div>
+    </div>
+
+    <div id="terms-screen" class="screen hidden">
+      <div class="terms-panel">
+        <div class="terms-head">
+          <h2>&#127861; Terms &amp; Conditions</h2>
+        </div>
+        <hr class="username-divider" />
+        <ul class="terms-list">
+          <li>
+            The game runs in <strong>weekly cycles</strong>, from Monday 00:00 to Sunday 23:59.
+            The leaderboard resets automatically every Monday.
+          </li>
+          <li>The <strong>Top 3 players</strong> on the weekly leaderboard each win <strong>one FREE boba</strong>.</li>
+          <li>
+            To claim your prize, <strong>share your final score to your Instagram Story</strong>
+            and tag <strong>@greenneko.eats</strong>.
+          </li>
+          <li>
+            The Story must be posted from the <strong>same Instagram account</strong> used when
+            entering the game. Staff will verify the account before awarding the prize.
+          </li>
+          <li>
+            Winners must claim their prize <strong>within 7 days</strong> after the weekly
+            competition ends. <strong>Unclaimed prizes expire.</strong>
+          </li>
+          <li><strong>One prize per person per week.</strong> Redeem in-store only.</li>
+          <li>Your Instagram username, score, and play date may appear on the public leaderboard.</li>
+        </ul>
+        <button type="button" id="terms-close" class="username-btn confirm">Got it! &#128062;</button>
       </div>
     </div>
 
     <div id="username-screen" class="screen hidden">
       <div class="username-panel">
         <div class="username-panel-head">
-          <h2>Enter Username</h2>
+          <h2>Instagram Handle</h2>
         </div>
         <hr class="username-divider" />
-        <p class="username-hint">Enter your name to appear<br />on the leaderboard!</p>
+        <p class="username-hint">
+          Enter your Instagram handle to appear<br />on the leaderboard. Winners are verified<br />from their story post!
+        </p>
         <form id="username-form" autocomplete="off">
           <input
             id="username-input"
             class="username-input"
             type="text"
-            maxlength="14"
-            placeholder="Your name"
+            maxlength="100"
+            placeholder="@yourhandle"
             autocomplete="off"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
           />
+          <p id="username-error" class="username-error hidden">Enter your Instagram handle to play</p>
           <button type="submit" id="username-confirm" class="username-btn confirm">Confirm</button>
           <button type="button" id="username-back" class="username-btn back">&larr; Back</button>
         </form>
+        <button type="button" id="username-terms" class="terms-inline-link">
+          By playing you agree to the Terms &amp; Conditions
+        </button>
       </div>
     </div>
 
@@ -67,6 +108,12 @@
           <h2>Scoreboard</h2>
         </div>
         <hr class="username-divider" />
+        <div class="scoreboard-tabs" role="tablist">
+          <button type="button" class="scoreboard-tab is-active" data-range="week" role="tab">This Week</button>
+          <button type="button" class="scoreboard-tab" data-range="last" role="tab">Last Week</button>
+          <button type="button" class="scoreboard-tab" data-range="all" role="tab">All Time</button>
+        </div>
+        <p id="scoreboard-range-note" class="scoreboard-range-note"></p>
         <div class="scoreboard-table">
           <div class="scoreboard-row scoreboard-header-row">
             <span class="col-rank">Rank</span>
@@ -78,6 +125,9 @@
         <button type="button" id="scoreboard-share-button" class="username-btn confirm scoreboard-share-btn">
           Share to Instagram
         </button>
+        <p class="scoreboard-share-hint">
+          &#127865; Entering the contest? Don&rsquo;t forget to share your score to your story!
+        </p>
         <p id="scoreboard-share-status" class="scoreboard-share-status hidden"></p>
         <div class="scoreboard-actions">
           <button type="button" id="scoreboard-back" class="username-btn back scoreboard-icon-btn" aria-label="Back">&larr;</button>
@@ -86,11 +136,31 @@
       </div>
     </div>
 
+    <!-- One paw, drawn once and reused by all four buttons; CSS rotates each
+         copy so the toes point the way that button moves the cat. -->
+    <svg class="svg-defs" aria-hidden="true" focusable="false">
+      <symbol id="paw-shape" viewBox="0 0 100 100">
+        <ellipse cx="50" cy="66" rx="27" ry="23" />
+        <ellipse cx="21" cy="43" rx="10" ry="12.5" transform="rotate(-20 21 43)" />
+        <ellipse cx="39" cy="27" rx="10.5" ry="13.5" transform="rotate(-8 39 27)" />
+        <ellipse cx="61" cy="27" rx="10.5" ry="13.5" transform="rotate(8 61 27)" />
+        <ellipse cx="79" cy="43" rx="10" ry="12.5" transform="rotate(20 79 43)" />
+      </symbol>
+    </svg>
+
     <div id="dpad" class="hidden">
-      <button id="dpad-up" class="dpad-btn dpad-up" aria-label="up">&#9650;</button>
-      <button id="dpad-left" class="dpad-btn dpad-left" aria-label="left">&#9664;</button>
-      <button id="dpad-right" class="dpad-btn dpad-right" aria-label="right">&#9654;</button>
-      <button id="dpad-down" class="dpad-btn dpad-down" aria-label="down">&#9660;</button>
+      <button id="dpad-up" class="dpad-btn dpad-up" aria-label="up">
+        <svg class="paw" viewBox="0 0 100 100" aria-hidden="true"><use href="#paw-shape" /></svg>
+      </button>
+      <button id="dpad-left" class="dpad-btn dpad-left" aria-label="left">
+        <svg class="paw" viewBox="0 0 100 100" aria-hidden="true"><use href="#paw-shape" /></svg>
+      </button>
+      <button id="dpad-right" class="dpad-btn dpad-right" aria-label="right">
+        <svg class="paw" viewBox="0 0 100 100" aria-hidden="true"><use href="#paw-shape" /></svg>
+      </button>
+      <button id="dpad-down" class="dpad-btn dpad-down" aria-label="down">
+        <svg class="paw" viewBox="0 0 100 100" aria-hidden="true"><use href="#paw-shape" /></svg>
+      </button>
     </div>
   </div>
 

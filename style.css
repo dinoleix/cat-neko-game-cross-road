@@ -22,6 +22,9 @@ html, body {
   justify-content: center;
   touch-action: none;
   user-select: none;
+  /* The canvas is deliberately wider than a phone screen so the play area can
+     fill it - clip the decorative margins that hang off each side. */
+  overflow: hidden;
 }
 
 #game-canvas {
@@ -198,6 +201,13 @@ html, body {
   margin: 0;
 }
 
+.username-error {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e5a3a3;
+}
+
 .username-hint {
   margin: 0;
   font-size: 12px;
@@ -273,7 +283,7 @@ html, body {
   max-height: 92%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   background: #182010;
   border: 3px solid #4a6030;
   border-radius: 14px;
@@ -308,11 +318,13 @@ html, body {
   border-radius: 10px;
 }
 
+/* Tightened from 9px: the tab strip added height above the table, and all ten
+   places have to stay visible without scrolling - it is a top-ten board. */
 .scoreboard-row {
   display: grid;
   grid-template-columns: 0.8fr 2fr 1fr;
   gap: 6px;
-  padding: 9px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid #2a3418;
   align-items: center;
 }
@@ -348,8 +360,154 @@ html, body {
   font-weight: 700;
 }
 
+.terms-panel {
+  position: relative;
+  width: min(94%, 420px);
+  max-height: 92%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #182010;
+  border: 3px solid #4a6030;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3);
+}
+
+.terms-head h2 {
+  margin: 0;
+  text-align: center;
+  font-size: 20px;
+  color: #d8e8a0;
+}
+
+/* The list is the only part allowed to scroll - the heading stays put and the
+   dismiss button stays reachable without scrolling to the bottom first. */
+.terms-list {
+  margin: 0;
+  padding: 0 4px 0 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #cfe0ae;
+  /* .screen centres its children; ragged-centre body copy is hard to read and
+     leaves the bullets stranded away from their text. */
+  text-align: left;
+}
+
+.terms-list li::marker {
+  color: #7d8f60;
+}
+
+.terms-list strong {
+  color: #e2ee9a;
+  font-weight: 700;
+}
+
+.terms-inline-link {
+  margin-top: 10px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 11px;
+  color: #7d8f60;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+@media (max-height: 800px) {
+  .terms-list {
+    font-size: 12px;
+    gap: 9px;
+  }
+  .terms-head h2 {
+    font-size: 18px;
+  }
+}
+
+.scoreboard-tabs {
+  display: flex;
+  gap: 4px;
+  background: rgba(74, 96, 48, 0.22);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.scoreboard-tab {
+  flex: 1;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 4px;
+  background: none;
+  color: #9db07c;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.scoreboard-tab.is-active {
+  background: #4a6030;
+  color: #f4ead2;
+}
+
+.scoreboard-range-note {
+  margin: 0;
+  text-align: center;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: #7d8f60;
+}
+
+/* A top-ten board has to actually show ten. On a short phone (SE-sized and
+   down) the tab strip, share button and hint leave the table too little room,
+   so everything around the rows gets tightened rather than letting the tenth
+   place fall below the fold where nobody scrolls to find it. */
+@media (max-height: 800px) {
+  .scoreboard-panel {
+    gap: 6px;
+    padding: 12px;
+  }
+  .scoreboard-row {
+    padding: 4px 12px;
+    font-size: 13px;
+  }
+  .scoreboard-head h2 {
+    font-size: 20px;
+  }
+  .scoreboard-range-note {
+    font-size: 9.5px;
+  }
+  .scoreboard-share-hint {
+    font-size: 10.5px;
+  }
+  .screen button.scoreboard-share-btn {
+    margin-top: 0;
+    padding: 9px 20px;
+    font-size: 14px;
+  }
+}
+
 .scoreboard-share-btn {
   margin-top: 4px;
+}
+
+/* Gold rather than the muted green the other hints use - this one is the
+   nudge that actually drives contest entries, so it should read as a prompt
+   and not sink into the surrounding secondary text. */
+.scoreboard-share-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+  color: #d9bb63;
 }
 
 .scoreboard-share-status {
@@ -396,7 +554,7 @@ html, body {
   font-weight: 700;
 }
 
-.screen button:not(.start-hit):not(.back):not(.scoreboard-link) {
+.screen button:not(.start-hit):not(.back):not(.scoreboard-link):not(.scoreboard-tab) {
   margin-top: 14px;
   padding: 12px 28px;
   font-size: 16px;
@@ -417,30 +575,60 @@ html, body {
   display: none !important;
 }
 
+/* Only ever referenced through <use>, so it must not take up any layout. */
+.svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Bottom-right, under the right thumb. Centring it put the pad directly over
+   the middle lane the cat runs up, so the hand covered the thing you're
+   trying to watch; off to one side keeps that sightline clear. */
 #dpad {
   position: absolute;
-  bottom: max(24px, env(safe-area-inset-bottom));
-  right: 20px;
-  width: 140px;
-  height: 140px;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(48vw, 210px);
+  aspect-ratio: 1;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(3, 1fr);
-  gap: 4px;
+  gap: 2px;
 }
 
 .dpad-btn {
   border: none;
-  border-radius: 10px;
-  background: rgba(240, 228, 200, 0.22);
-  color: #f0e4c8;
-  font-size: 18px;
+  background: none;
+  padding: 0;
+  display: grid;
+  place-items: center;
   touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.08s ease;
 }
 
 .dpad-btn:active {
-  background: rgba(240, 228, 200, 0.4);
+  transform: scale(0.88);
 }
+
+.paw {
+  width: 100%;
+  height: 100%;
+  fill: rgba(244, 234, 210, 0.5);
+  filter: drop-shadow(0 2px 0 rgba(28, 36, 21, 0.45));
+  transition: fill 0.08s ease;
+}
+
+.dpad-btn:active .paw {
+  fill: rgba(255, 248, 224, 0.92);
+}
+
+/* Point the toes the way the button travels. */
+.dpad-down .paw { transform: rotate(180deg); }
+.dpad-left .paw { transform: rotate(-90deg); }
+.dpad-right .paw { transform: rotate(90deg); }
 
 .dpad-up { grid-column: 2; grid-row: 1; }
 .dpad-left { grid-column: 1; grid-row: 2; }

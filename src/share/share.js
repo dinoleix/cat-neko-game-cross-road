@@ -1,4 +1,4 @@
-import { generateScoreCard } from "./scoreCard.js";
+import { generateScoreCard, CAFE_HANDLE } from "./scoreCard.js";
 
 function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
@@ -9,79 +9,65 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
-function isIOS() {
-  // iPadOS 13+ identifies as "MacIntel" in the UA string; touch points is
-  // what actually distinguishes it from a real Mac.
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+function captionFor(score, username) {
+  // The prize is the reason a stranger scrolling past would tap through, so it
+  // goes in the caption too - not just burned into the image, which anyone
+  // reposting without the picture would lose.
+  // The tag is not decoration - it is the claim step from the Terms, so it has
+  // to survive into the caption a winner actually posts.
+  return (
+    `@${username} just scored ${score} at Green Neko Cafe! 🧋 ` +
+    `Top 3 this week win a FREE BOBA - tag ${CAFE_HANDLE} to claim. ` +
+    `Think you can beat it? ${location.href}`
+  );
 }
 
-// Facebook App ID Instagram expects as source_application for attribution.
-// This project doesn't have one registered in Meta's developer console yet
-// - Instagram still honors the pasteboard handoff without a valid ID, it
-// just won't be able to attribute/brand the referral.
-const INSTAGRAM_SOURCE_APP_ID = "green_neko_game";
+// Rendering the card is the slow part: a 1080x1920 canvas, a sprite decode and
+// a PNG encode, which together can run into seconds on a phone. Doing that
+// inside the share tap is what pushed people into the download fallback -
+// navigator.share() has to be called while the tap's transient user activation
+// is still valid, and iOS Safari rejects it once that has lapsed. So the card
+// is rendered ahead of time, when the scoreboard opens, and the tap only has
+// to hand over an already-finished file.
+let prepared = null;
 
-// Instagram's documented mobile-Safari bridge for jumping straight into the
-// Stories camera with an image pre-loaded: put the image on the system
-// pasteboard, then open the instagram-stories:// URL scheme. This only
-// exists on iOS (Android has no equivalent web-facing scheme - there, the
-// Web Share API below already lands the user inside Instagram's own
-// share-to-story picker once they choose it from the OS sheet).
-async function tryInstagramStories(blob) {
-  if (!isIOS()) return false;
-  if (!navigator.clipboard?.write || typeof ClipboardItem === "undefined") return false;
-
-  try {
-    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
-  } catch {
-    return false; // clipboard write needs a live user gesture; if it's gone, fall back
-  }
-
-  return new Promise((resolve) => {
-    const onHide = () => {
-      document.removeEventListener("visibilitychange", onHide);
-      resolve(true); // page backgrounded - Instagram took over
-    };
-    document.addEventListener("visibilitychange", onHide);
-    window.location.href = `instagram-stories://share?source_application=${INSTAGRAM_SOURCE_APP_ID}`;
-    setTimeout(() => {
-      document.removeEventListener("visibilitychange", onHide);
-      resolve(document.hidden); // still here after a beat - Instagram isn't installed
-    }, 1200);
-  });
-}
-
-// Instagram has no public web API for posting to a feed/story from an
-// arbitrary site, so beyond the iOS Stories bridge above, this falls back
-// to the standard Web Share API: on mobile browsers that support it, it
-// opens the native OS share sheet, which lists Instagram as one of the
-// apps a person can pick - that's the actual, honest integration point
-// available here. On desktop / unsupported browsers it falls back to
-// downloading the image and copying the caption so it can still be posted
-// manually.
-export async function shareScore(score, username) {
-  const caption = `${username} just scored ${score} in Green Neko! Think you can beat it? ${location.href}`;
+export async function prepareScoreCard(score, username) {
+  const key = `${score}|${username}`;
+  if (prepared && prepared.key === key) return prepared;
   const blob = await generateScoreCard(score, username);
-  const file = new File([blob], "green-neko-score.png", { type: "image/png" });
+  prepared = {
+    key,
+    blob,
+    file: new File([blob], "green-neko-score.png", { type: "image/png" }),
+    caption: captionFor(score, username),
+  };
+  return prepared;
+}
 
-  if (await tryInstagramStories(blob)) {
-    return { method: "instagram-stories" };
-  }
+// Instagram has no web API for posting straight to a story, and the
+// instagram-stories:// handoff needs custom iOS pasteboard types
+// (com.instagram.sharedSticker.*) that only a native app can write - a page
+// that opens that URL scheme lands the user on an empty story, which is worse
+// than not trying. The native share sheet is the real integration point: the
+// user taps Instagram in the sheet and Instagram opens with the card already
+// loaded, no download and no camera-roll detour.
+export async function shareScore(score, username) {
+  const ready = prepared && prepared.key === `${score}|${username}`
+    ? prepared
+    : await prepareScoreCard(score, username);
+  const { blob, file, caption } = ready;
 
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: "Green Neko", text: caption });
+      // Files only. Passing `text` alongside them makes some targets treat it
+      // as a text share and drop the image - and a Story ignores share text
+      // regardless, so the caption goes to the clipboard instead.
+      await navigator.share({ files: [file], title: "Green Neko" });
+      navigator.clipboard?.writeText(caption).catch(() => {});
       return { method: "share" };
     } catch (err) {
       if (err.name === "AbortError") return { method: "cancelled" };
-      // fall through to the download fallback below
-    }
-  } else if (navigator.share) {
-    try {
-      await navigator.share({ title: "Green Neko", text: caption });
-      return { method: "share-text-only" };
-    } catch (err) {
-      if (err.name === "AbortError") return { method: "cancelled" };
+      // otherwise fall through to the download fallback below
     }
   }
 

@@ -1,15 +1,34 @@
 import { startLoop } from "./core/loop.js";
-import { COLS, MARGIN_COLS, VISIBLE_ROWS, LOGICAL_WIDTH, LOGICAL_HEIGHT, colToX, rowToY } from "./core/Grid.js";
+import {
+  COLS,
+  TILE_SIZE,
+  VISIBLE_ROWS,
+  LOGICAL_WIDTH,
+  LOGICAL_HEIGHT,
+  PLAY_WIDTH,
+  setViewportHeight,
+  colToX,
+  rowToY,
+} from "./core/Grid.js";
 import { preloadImages } from "./render/ImageLoader.js";
 import { drawFloorTile, drawCat, drawServer, drawCart } from "./render/sprites.js";
 import { drawMarginWall, drawMarginProp } from "./render/background.js";
 import { rectsOverlap } from "./util/collision.js";
-import { getHighScore, setHighScoreIfBetter, addLeaderboardEntry, getLeaderboard } from "./util/storage.js";
+import {
+  getHighScore,
+  setHighScoreIfBetter,
+  addLeaderboardEntry,
+  getLeaderboard,
+  getUsername,
+  setUsername,
+} from "./util/storage.js";
+import { mondayOf } from "./util/week.js";
+import { normalizeHandle, isValidHandle, displayHandle } from "./util/handle.js";
 import { Player } from "./entities/Player.js";
 import { World } from "./world/World.js";
 import { unlockAudio, playMeow, playGameOver } from "./audio/sound.js";
 import { startMusic } from "./audio/music.js";
-import { shareScore } from "./share/share.js";
+import { shareScore, prepareScoreCard } from "./share/share.js";
 
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
@@ -31,32 +50,69 @@ const usernameScreen = document.getElementById("username-screen");
 const usernameForm = document.getElementById("username-form");
 const usernameInput = document.getElementById("username-input");
 const usernameBackButton = document.getElementById("username-back");
+const usernameError = document.getElementById("username-error");
 const scoreboardScreen = document.getElementById("scoreboard-screen");
 const scoreboardRowsEl = document.getElementById("scoreboard-rows");
+const scoreboardTabs = [...document.querySelectorAll(".scoreboard-tab")];
+const scoreboardRangeNote = document.getElementById("scoreboard-range-note");
 const scoreboardBackButton = document.getElementById("scoreboard-back");
 const scoreboardCloseButton = document.getElementById("scoreboard-close");
 const startScoreboardButton = document.getElementById("start-scoreboard-button");
+const startTermsButton = document.getElementById("start-terms-button");
+const usernameTermsButton = document.getElementById("username-terms");
+const termsScreen = document.getElementById("terms-screen");
+const termsCloseButton = document.getElementById("terms-close");
 const gameoverScoreboardButton = document.getElementById("gameover-scoreboard-button");
 const scoreboardShareButton = document.getElementById("scoreboard-share-button");
 const scoreboardShareStatus = document.getElementById("scoreboard-share-status");
 
-const LOWER_OFFSET = 4;
+// How far above the bottom edge the camera holds the cat, as a share of the
+// visible rows. A fixed row count would park the cat ~74% down a tall phone
+// screen instead of the ~64% the 14-row layout was tuned at; 0.28 reproduces
+// the original offset of 4 on a 14-row view and keeps that framing as the
+// view grows. It also bounds how far back the cat may retreat.
+const LOWER_OFFSET_RATIO = 0.28;
 const CAMERA_EASE = 8;
+
+function lowerOffset() {
+  return Math.max(3, Math.round(VISIBLE_ROWS * LOWER_OFFSET_RATIO));
+}
 const SCOREBOARD_ROWS = 10;
 
 let state = "start"; // 'start' | 'username' | 'playing' | 'gameover' | 'scoreboard'
 let scoreboardReturnScreen = startScreen;
+let scoreboardRange = "week"; // 'week' | 'last' | 'all'
 let player = null;
 let world = null;
 let cameraRow = 0;
 let maxRowReached = 0;
 let score = 0;
 let difficultyTier = 0;
-let currentUsername = "Player";
+let currentUsername = "";
+// Resolves once the score from the run that just ended has been written to
+// Firestore. renderScoreboard waits on it so opening the board straight off
+// the game-over screen can't race the write and show a board missing the
+// score the player just earned.
+let pendingScoreSubmit = null;
+
+// Below this the tiles get big enough that you can't see far enough ahead to
+// react, so a short landscape window letterboxes at the sides instead.
+const MIN_VISIBLE_ROWS = 11;
 
 function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const scale = Math.min(window.innerWidth / LOGICAL_WIDTH, window.innerHeight / LOGICAL_HEIGHT);
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Fit to the *playable* 9 columns rather than the full 13, so on a narrow
+  // phone the decorative margins bleed off the sides and the game fills the
+  // display. Fitting the full width is what used to letterbox a tall phone
+  // down to roughly its top half.
+  const scale = Math.min(vw / PLAY_WIDTH, vh / (MIN_VISIBLE_ROWS * TILE_SIZE));
+
+  // The world is exactly as tall as the screen, so there is nothing to letterbox.
+  setViewportHeight(vh / scale);
+
   canvas.style.width = `${LOGICAL_WIDTH * scale}px`;
   canvas.style.height = `${LOGICAL_HEIGHT * scale}px`;
   canvas.width = Math.round(LOGICAL_WIDTH * dpr);
@@ -85,7 +141,9 @@ function resetGame() {
   player = new Player(Math.floor(COLS / 2), 0);
   world = new World();
   world.ensureGenerated(VISIBLE_ROWS + 2);
-  cameraRow = 0;
+  // Start already at the resting offset so the opening frame doesn't visibly
+  // slide the camera down into position.
+  cameraRow = -lowerOffset();
   maxRowReached = 0;
   score = 0;
   difficultyTier = 0;
@@ -99,9 +157,13 @@ function formatScore(value) {
 function showUsernameScreen() {
   state = "username";
   startScreen.classList.add("hidden");
-  usernameInput.value = "";
+  usernameInput.value = displayHandle(getUsername());
+  usernameError.classList.add("hidden");
   usernameScreen.classList.remove("hidden");
-  setTimeout(() => usernameInput.focus(), 50);
+  setTimeout(() => {
+    usernameInput.focus();
+    usernameInput.select(); // prefilled returning handle is easy to overwrite
+  }, 50);
 }
 
 function backToStart() {
@@ -112,7 +174,17 @@ function backToStart() {
 
 function confirmUsername(e) {
   e.preventDefault();
-  currentUsername = usernameInput.value.trim() || "Player";
+  const handle = normalizeHandle(usernameInput.value);
+  // A run with no handle can't be matched to a story post, so it would sit on
+  // the contest board as an entry nobody can claim the prize for.
+  if (!isValidHandle(handle)) {
+    usernameError.classList.remove("hidden");
+    usernameInput.focus();
+    return;
+  }
+  currentUsername = handle;
+  setUsername(handle);
+  usernameError.classList.add("hidden");
   usernameScreen.classList.add("hidden");
   beginPlaying();
 }
@@ -121,6 +193,9 @@ function beginPlaying() {
   unlockAudio();
   startMusic();
   resetGame();
+  // The previous run's submit is settled business - drop it so the next
+  // scoreboard open fetches fresh rather than replaying a stale board.
+  pendingScoreSubmit = null;
   state = "playing";
   startScreen.classList.add("hidden");
   usernameScreen.classList.add("hidden");
@@ -136,7 +211,10 @@ function beginPlaying() {
 // player already backed out of) clobbering a newer one that lands after it.
 let scoreboardRenderToken = 0;
 
-function renderScoreboardRows(entries) {
+// Blank cells look identical to a leaderboard nobody has scored on, and the
+// first Firebase call of a session takes about three seconds to come back, so
+// a pending fetch says so rather than showing an empty board.
+function renderScoreboardRows(entries, loading = false) {
   scoreboardRowsEl.innerHTML = "";
   for (let i = 0; i < SCOREBOARD_ROWS; i++) {
     const entry = entries[i];
@@ -144,17 +222,38 @@ function renderScoreboardRows(entries) {
     row.className = "scoreboard-row";
     row.innerHTML = `
       <span class="col-rank">${i + 1}</span>
-      <span class="col-player">${entry ? escapeHtml(entry.name) : ""}</span>
+      <span class="col-player">${entry ? escapeHtml(displayHandle(entry.name)) : loading ? "···" : ""}</span>
       <span class="col-score">${entry ? entry.score : ""}</span>
     `;
     scoreboardRowsEl.appendChild(row);
   }
 }
 
+function rangeNote(range) {
+  if (range === "all") return "Every score ever recorded";
+  const monday = mondayOf(new Date());
+  if (range === "last") monday.setDate(monday.getDate() - 7);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  return `${fmt(monday)} – ${fmt(sunday)} · Mon 00:00 to Sun 23:59`;
+}
+
+function setScoreboardRange(range) {
+  scoreboardRange = range;
+  for (const tab of scoreboardTabs) tab.classList.toggle("is-active", tab.dataset.range === range);
+  scoreboardRangeNote.textContent = rangeNote(range);
+  renderScoreboard();
+}
+
 async function renderScoreboard() {
   const token = ++scoreboardRenderToken;
-  renderScoreboardRows([]);
-  const entries = await getLeaderboard();
+  const range = scoreboardRange;
+  renderScoreboardRows([], true);
+  // Wait out a submit still in flight first, otherwise the board can be read
+  // back before the score from the run just played has landed in it.
+  if (pendingScoreSubmit) await pendingScoreSubmit;
+  const entries = await getLeaderboard(range);
   if (token !== scoreboardRenderToken) return;
   renderScoreboardRows(entries);
 }
@@ -168,9 +267,32 @@ function escapeHtml(str) {
 function openScoreboard(fromScreen) {
   scoreboardReturnScreen = fromScreen;
   state = "scoreboard";
-  renderScoreboard();
+  // Open on this week - that is the board the contest is actually run on.
+  setScoreboardRange("week");
+  // Render the share card now, while the player is reading the board, so the
+  // Share tap can call navigator.share() immediately and keep its user
+  // activation. Failures are ignored - shareScore falls back to rendering it
+  // itself, and there is nothing useful to say about it at this point.
+  prepareScoreCard(getHighScore(), currentUsername).catch(() => {});
   fromScreen.classList.add("hidden");
   scoreboardScreen.classList.remove("hidden");
+}
+
+// Returns to whichever screen opened it, so reading the rules from the handle
+// screen doesn't lose a half-typed handle.
+let termsReturnScreen = startScreen;
+
+function openTerms(fromScreen) {
+  termsReturnScreen = fromScreen;
+  state = "terms";
+  fromScreen.classList.add("hidden");
+  termsScreen.classList.remove("hidden");
+}
+
+function closeTerms() {
+  state = termsReturnScreen === usernameScreen ? "username" : "start";
+  termsScreen.classList.add("hidden");
+  termsReturnScreen.classList.remove("hidden");
 }
 
 function closeScoreboard() {
@@ -201,7 +323,7 @@ function gameOver() {
   player.died();
   playGameOver();
   const isNewBest = setHighScoreIfBetter(score);
-  addLeaderboardEntry(currentUsername, score);
+  pendingScoreSubmit = addLeaderboardEntry(currentUsername, score);
   finalScoreEl.textContent = String(score);
   finalBestEl.textContent = String(getHighScore());
   newBestEl.classList.toggle("hidden", !isNewBest);
@@ -279,8 +401,14 @@ function setupSwipe() {
 function update(dt) {
   if (state !== "playing") return;
 
-  const minRow = Math.max(0, maxRowReached - LOWER_OFFSET);
-  const targetCamera = minRow;
+  // These two used to be the same number, but they answer different questions.
+  // minRow is how far back the cat may retreat, which must never go below the
+  // first row. The camera target may: letting it sit below row 0 at the start
+  // puts the cat at its normal height up the screen immediately, instead of
+  // pinned to the very bottom edge - which on a tall phone spawned it
+  // underneath the d-pad. The rows below 0 just draw as empty café floor.
+  const minRow = Math.max(0, maxRowReached - lowerOffset());
+  const targetCamera = maxRowReached - lowerOffset();
   cameraRow += (targetCamera - cameraRow) * Math.min(1, dt * CAMERA_EASE);
 
   world.ensureGenerated(Math.ceil(cameraRow) + VISIBLE_ROWS + 2);
@@ -362,6 +490,9 @@ async function init() {
 
   resetGame();
   startBestEl.textContent = String(getHighScore());
+  // Carry a remembered handle into this session so a share card built from the
+  // start screen (before any run) is attributed to the right account.
+  currentUsername = getUsername();
 
   setupKeyboard();
   setupDpad();
@@ -376,6 +507,12 @@ async function init() {
   scoreboardBackButton.addEventListener("click", closeScoreboard);
   scoreboardCloseButton.addEventListener("click", closeScoreboard);
   scoreboardShareButton.addEventListener("click", handleShareClick);
+  for (const tab of scoreboardTabs) {
+    tab.addEventListener("click", () => setScoreboardRange(tab.dataset.range));
+  }
+  startTermsButton.addEventListener("click", () => openTerms(startScreen));
+  usernameTermsButton.addEventListener("click", () => openTerms(usernameScreen));
+  termsCloseButton.addEventListener("click", closeTerms);
 
   await preloadImages();
 
