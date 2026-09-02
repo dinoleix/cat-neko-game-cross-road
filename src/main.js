@@ -186,7 +186,7 @@ function confirmUsername(e) {
   setUsername(handle);
   usernameError.classList.add("hidden");
   usernameScreen.classList.add("hidden");
-  beginPlaying();
+  openTermsGate();
 }
 
 function beginPlaying() {
@@ -281,17 +281,37 @@ function openScoreboard(fromScreen) {
 // Returns to whichever screen opened it, so reading the rules from the handle
 // screen doesn't lose a half-typed handle.
 let termsReturnScreen = startScreen;
+// True when terms were opened as the mandatory gate after Confirm - agreeing
+// then starts the run instead of returning to the screen that opened it.
+let termsGate = false;
 
 function openTerms(fromScreen) {
+  termsGate = false;
   termsReturnScreen = fromScreen;
   state = "terms";
+  termsCloseButton.textContent = "Got it! \u{1F43E}";
   fromScreen.classList.add("hidden");
   termsScreen.classList.remove("hidden");
 }
 
+// Confirming a handle must not drop the player straight into the game - they
+// have to see and accept the terms first, since the boba-prize rules (weekly
+// reset, Instagram Story verification) only make sense once agreed to.
+function openTermsGate() {
+  termsGate = true;
+  state = "terms";
+  termsCloseButton.textContent = "I Agree";
+  termsScreen.classList.remove("hidden");
+}
+
 function closeTerms() {
-  state = termsReturnScreen === usernameScreen ? "username" : "start";
   termsScreen.classList.add("hidden");
+  if (termsGate) {
+    termsGate = false;
+    beginPlaying();
+    return;
+  }
+  state = termsReturnScreen === usernameScreen ? "username" : "start";
   termsReturnScreen.classList.remove("hidden");
 }
 
