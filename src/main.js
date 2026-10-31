@@ -30,6 +30,16 @@ import { unlockAudio, playMeow, playGameOver } from "./audio/sound.js";
 import { startMusic } from "./audio/music.js";
 import { shareScore, prepareScoreCard } from "./share/share.js";
 
+function trackGameEvent(eventName, parameters = {}) {
+  try {
+    if (typeof window.gtag === "function") {
+      window.gtag("event", eventName, { game_name: "neko_crossy", ...parameters });
+    }
+  } catch (_) {
+    // Analytics must never interrupt gameplay.
+  }
+}
+
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
 
@@ -190,6 +200,7 @@ function confirmUsername(e) {
 }
 
 function beginPlaying() {
+  trackGameEvent("game_start");
   unlockAudio();
   startMusic();
   resetGame();
@@ -339,6 +350,7 @@ async function handleShareClick() {
 }
 
 function gameOver() {
+  trackGameEvent("game_over", { score });
   state = "gameover";
   player.died();
   playGameOver();
